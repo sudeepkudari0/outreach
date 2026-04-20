@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# Backend secrets and session data
+backend/secrets/
+backend/session/
+
+# Resume (user replaces with their own)
+resume/resume.pdf
+
+# Next.js dashboard
+dashboard/.next/
+dashboard/node_modules/
+dashboard/out/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+mongo_data/

@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.naukri.com/full-stack-developer-jobs-in-bangalore",
+  "url": "https://www.naukri.com/full-stack-developer-jobs-in-bangalore",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-04-20 11:13:53.667029+00:00"
+}
