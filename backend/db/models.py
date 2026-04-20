@@ -19,7 +19,11 @@ class Job(Document):
     source_site: Literal["linkedin", "naukri", "instahyre"]
     source_url: str
     raw_post_text: str
-    status: Literal["found", "drafted", "approved", "sent", "replied", "ignored"] = "found"
+    source_type: Literal["emails", "manual"] = "emails"
+    notes: Optional[str] = None
+    status: Literal[
+        "found", "drafted", "approved", "sent", "replied", "ignored", "applied"
+    ] = "found"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

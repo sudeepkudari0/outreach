@@ -22,12 +22,10 @@ from backend.scrapers.base import extract_emails, save_job_if_new
 
 logger = logging.getLogger(__name__)
 
-# Module-level reference for WebSocket broadcast
 _ws_broadcast: Optional[callable] = None
 
 
 def set_ws_broadcast(fn: callable) -> None:
-    """Set the WebSocket broadcast function for live logging."""
     global _ws_broadcast
     _ws_broadcast = fn
 
@@ -37,6 +35,11 @@ async def _log(message: str) -> None:
     logger.info(message)
     if _ws_broadcast:
         await _ws_broadcast(f"[LinkedIn] {message}")
+
+
+async def _log_data(label: str, data: dict) -> None:
+    """Log structured data as formatted JSON."""
+    await _log(f"{label}: {json.dumps(data)}")
 
 
 async def _ensure_cookies(context: BrowserContext) -> None:
@@ -64,10 +67,8 @@ async def _interactive_login(context: BrowserContext, cookies_path: Path) -> Non
     print("Press Enter here when you're done logging in.")
     print("=" * 60 + "\n")
 
-    # Wait for user input (blocking — only used in CLI mode)
     await asyncio.get_event_loop().run_in_executor(None, input)
 
-    # Save cookies
     cookies = await context.cookies()
     cookies_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cookies_path, "w") as f:
@@ -80,20 +81,27 @@ async def _interactive_login(context: BrowserContext, cookies_path: Path) -> Non
 def _is_authwall(title: str, url: str) -> bool:
     """Detect if LinkedIn has blocked us with an auth wall."""
     title_lower = title.lower()
-    return "authwall" in title_lower or "auth" in url and "wall" in url
+    return "authwall" in title_lower or ("auth" in url and "wall" in url)
 
 
-async def scrape_linkedin() -> int:
+async def scrape_linkedin(
+    date_filter: str = "r604800",
+    source_type: str = "emails",
+) -> int:
     """
     Scrape LinkedIn jobs based on configured keywords and location.
     Returns the number of new jobs found.
     """
     keywords = quote_plus(settings.linkedin_search_keywords)
     location = quote_plus(settings.linkedin_search_location)
-    start_url = (
-        f"https://www.linkedin.com/jobs/search/"
-        f"?keywords={keywords}&location={location}"
-    )
+    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&location={location}&f_TPR={date_filter}"
+
+    await _log(f"=== Starting LinkedIn scrape ===")
+    await _log(f"Search keywords: {settings.linkedin_search_keywords}")
+    await _log(f"Search location: {settings.linkedin_search_location}")
+    await _log(f"Date filter: {date_filter}")
+    await _log(f"Source type: {source_type}")
+    await _log(f"Target URL: {start_url}")
 
     new_jobs_count = 0
 
@@ -108,8 +116,9 @@ async def scrape_linkedin() -> int:
         nonlocal new_jobs_count
         page = context.page
 
-        # Check for auth wall
         title = await page.title()
+        await _log(f"Page title: {title}")
+
         if _is_authwall(title, page.url):
             cookies_path = Path(settings.linkedin_cookies_path)
             if cookies_path.exists():
@@ -121,61 +130,129 @@ async def scrape_linkedin() -> int:
 
         await _log(f"Scraping listing page: {page.url}")
 
-        # Extract job links
         job_links = await page.query_selector_all("ul.jobs-search__results-list a")
         urls = []
         for link in job_links:
             href = await link.get_attribute("href")
             if href and "/jobs/view/" in href:
-                full_url = href if href.startswith("http") else f"https://www.linkedin.com{href}"
+                full_url = (
+                    href
+                    if href.startswith("http")
+                    else f"https://www.linkedin.com{href}"
+                )
                 urls.append(full_url)
 
-        await _log(f"Found {len(urls)} job links on listing page")
+        await _log(f"Found {len(urls)} job listing links")
 
-        for url in urls:
-            await context.add_requests(
-                [{"url": url, "label": "job_detail"}]
-            )
+        if len(urls) == 0:
+            await _log("WARNING: No job links found on listing page!")
+            return
+
+        # For manual mode, save all links directly without crawling detail pages
+        if source_type == "manual":
+            await _log(f"[MANUAL] Saving {len(urls)} jobs directly from listing...")
+            for i, url in enumerate(urls):
+                job = await save_job_if_new(
+                    title=f"Job #{i + 1}",
+                    company=None,
+                    recruiter_name=None,
+                    email=f"manual-{url}",
+                    source_site="linkedin",
+                    source_url=url,
+                    raw_post_text=f"Link: {url}",
+                    source_type=source_type,
+                )
+                if job:
+                    new_jobs_count += 1
+                    if (i + 1) % 10 == 0:
+                        await _log(f"[MANUAL] Saved {i + 1}/{len(urls)} jobs...")
+            await _log(f"[MANUAL] Done! Saved {new_jobs_count} jobs total")
+            return
+
+        # For emails mode, crawl each detail page
+        for i, url in enumerate(urls):
+            await _log(f"Queueing job {i + 1}/{len(urls)}: {url}")
+            await context.add_requests([url])
 
     @crawler.router.handler("job_detail")
     async def detail_handler(context: PlaywrightCrawlingContext) -> None:
         nonlocal new_jobs_count
         page = context.page
 
-        # Check for auth wall
         title = await page.title()
         if _is_authwall(title, page.url):
-            await _log("Auth wall on detail page, skipping...")
+            await _log(f"Auth wall on detail page, skipping: {page.url}")
             return
 
-        await _log(f"Scraping job detail: {page.url}")
+        await _log(f"--- Scraping job detail: {page.url}")
 
-        # Extract job details
         title_el = await page.query_selector("h1.top-card-layout__title")
         job_title = await title_el.inner_text() if title_el else "Unknown Title"
+        job_title = job_title.strip() if job_title else job_title
 
         company_el = await page.query_selector("a.topcard__org-name-link")
         company = await company_el.inner_text() if company_el else None
         if company:
             company = company.strip()
 
+        await _log(f"Job title: {job_title}")
+        await _log(f"Company: {company}")
+
         desc_el = await page.query_selector("div.description__text")
         description = await desc_el.inner_text() if desc_el else ""
+        description = description.strip() if description else description
 
-        # Try to find recruiter name
+        await _log(
+            f"Description length: {len(description) if description else 0} chars"
+        )
+
         recruiter_el = await page.query_selector(".message-the-recruiter h3")
         recruiter_name = await recruiter_el.inner_text() if recruiter_el else None
+        if recruiter_name:
+            recruiter_name = recruiter_name.strip()
+            await _log(f"Recruiter name: {recruiter_name}")
 
-        # Extract emails from entire page text
         full_text = await page.inner_text("body")
-        emails = extract_emails(full_text)
 
-        if not emails:
-            await _log(f"No emails found for: {job_title}")
+        # For manual mode, save job without requiring email
+        if source_type == "manual":
+            await _log(f"[MANUAL] Saving job: {job_title} @ {company}")
+            job = await save_job_if_new(
+                title=job_title.strip(),
+                company=company,
+                recruiter_name=recruiter_name,
+                email=f"manual-{page.url}",
+                source_site="linkedin",
+                source_url=page.url,
+                raw_post_text=description.strip() if description else "",
+                source_type=source_type,
+            )
+            if job:
+                new_jobs_count += 1
+                await _log(f"✓ Manual job saved: ID={job.id}, {job_title} @ {company}")
+            await asyncio.sleep(random.uniform(1, 3))
             return
 
-        # Save each unique email as a job
+        emails = extract_emails(full_text)
+
+        await _log(f"Emails found: {emails}")
+
+        if not emails:
+            await _log(f"WARNING: No emails found for job '{job_title}' at {company}")
+            await _log(
+                f"Full page text length: {len(full_text) if full_text else 0} chars"
+            )
+
+            if description:
+                desc_preview = description[:300]
+                await _log(f"Description preview: {desc_preview}...")
+            return
+
+        await _log(f"Found {len(emails)} email(s) for {job_title}")
+
         for email in emails:
+            await _log(f"Processing email: {email}")
+
             job = await save_job_if_new(
                 title=job_title.strip(),
                 company=company,
@@ -183,14 +260,16 @@ async def scrape_linkedin() -> int:
                 email=email,
                 source_site="linkedin",
                 source_url=page.url,
-                raw_post_text=description.strip(),
+                raw_post_text=description.strip() if description else "",
+                source_type=source_type,
             )
 
             if job:
                 new_jobs_count += 1
-                await _log(f"New job saved: {job_title} ({email})")
+                await _log(
+                    f"✓ New job saved: ID={job.id}, {job_title} @ {company} ({email})"
+                )
 
-                # Generate email draft
                 try:
                     draft_data = await generate_email_draft(job)
                     draft = EmailDraft(
@@ -201,19 +280,27 @@ async def scrape_linkedin() -> int:
                     await draft.insert()
                     job.status = "drafted"
                     await job.save()
-                    await _log(f"Draft generated for: {job_title}")
+                    await _log(f"✓ Draft generated for: {job_title}")
                 except Exception as e:
-                    await _log(f"Failed to generate draft for {job_title}: {e}")
+                    await _log(f"ERROR: Failed to generate draft for {job_title}: {e}")
+            else:
+                await _log(f"Job already exists (duplicate): {job_title} @ {company}")
 
-        # Random delay between detail pages
         await asyncio.sleep(random.uniform(3, 8))
 
-    # Removed duplicate default_handler for pre_navigation
-
-    # Run the crawler
-    await _log("Starting LinkedIn scrape...")
+    await _log("Starting LinkedIn crawler...")
     await crawler.run([start_url])
-    await _log(f"LinkedIn scrape complete. New jobs found: {new_jobs_count}")
+
+    if new_jobs_count == 0:
+        await _log("WARNING: No new jobs were scraped!")
+        await _log("Possible reasons:")
+        await _log("  - No job listings matched your search criteria")
+        await _log("  - Jobs found but no contact emails displayed")
+        await _log("  - All found jobs are duplicates of existing entries")
+    else:
+        await _log(
+            f"=== LinkedIn scrape complete. New jobs found: {new_jobs_count} ==="
+        )
 
     return new_jobs_count
 
@@ -225,7 +312,6 @@ async def delete_cookies_and_reauth() -> None:
         os.remove(cookies_path)
         logger.info("LinkedIn cookies deleted.")
 
-    # Launch headed browser for login
     from playwright.async_api import async_playwright
 
     async with async_playwright() as p:

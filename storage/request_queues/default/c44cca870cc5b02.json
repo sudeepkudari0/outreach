@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.linkedin.com/jobs/search?f_tpr=r86400&keywords=full+stack+developer&location=bangalore",
+  "url": "https://www.linkedin.com/jobs/search/?keywords=full+stack+developer&location=Bangalore&f_TPR=r86400",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-04-20 14:30:50.895223+00:00"
+}

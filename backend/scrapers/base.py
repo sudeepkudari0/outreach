@@ -88,6 +88,7 @@ async def save_job_if_new(
     source_site: str,
     source_url: str,
     raw_post_text: str,
+    source_type: str = "emails",
 ) -> Optional[Job]:
     """
     Save a new Job document if the email doesn't already exist.
@@ -105,6 +106,7 @@ async def save_job_if_new(
         source_site=source_site,
         source_url=source_url,
         raw_post_text=raw_post_text,
+        source_type=source_type,
     )
 
     try:

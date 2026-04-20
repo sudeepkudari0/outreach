@@ -1,12 +1,12 @@
 {
-  "sequence_counter": 1,
+  "sequence_counter": 10,
   "forefront_sequence_counter": 0,
   "forefront_requests": {},
   "regular_requests": {
-    "https://www.naukri.com/full-stack-developer-jobs-in-bangalore": 0
+    "https://www.linkedin.com/jobs/search?f_tpr=r604800&keywords=full+stack+developer&location=bangalore": 9
   },
   "in_progress_requests": [],
   "handled_requests": [
-    "https://www.naukri.com/full-stack-developer-jobs-in-bangalore"
+    "https://www.linkedin.com/jobs/search?f_tpr=r604800&keywords=full+stack+developer&location=bangalore"
   ]
 }

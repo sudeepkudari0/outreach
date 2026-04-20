@@ -10,6 +10,8 @@ type Job = {
   source_site: string;
   source_url: string;
   raw_post_text: string;
+  source_type: "emails" | "manual";
+  notes: string | null;
   status: string;
   created_at: string;
 };
@@ -28,10 +30,11 @@ type JobWithDraft = Job & { draft: Draft | null };
 
 export const api = {
   jobs: {
-    list: async (status?: string, site?: string): Promise<Job[]> => {
+    list: async (status?: string, site?: string, source_type?: string): Promise<Job[]> => {
       const params = new URLSearchParams();
       if (status) params.append("status", status);
       if (site) params.append("site", site);
+      if (source_type) params.append("source_type", source_type);
 
       const res = await fetch(`${API_BASE_URL}/jobs?${params.toString()}`, {
         cache: "no-store",
@@ -58,11 +61,31 @@ export const api = {
       return res.json();
     },
 
-    scrape: async (site: "linkedin" | "naukri" | "all") => {
+    updateNotes: async (id: string, notes: string): Promise<Job> => {
+      const res = await fetch(`${API_BASE_URL}/jobs/${id}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) throw new Error("Failed to update notes");
+      return res.json();
+    },
+
+    scrape: async (
+      site: "linkedin" | "naukri" | "all",
+      options?: {
+        dateFilter?: "r86400" | "r259200" | "r604800" | "r2592000";
+        sourceType?: "emails" | "manual";
+      },
+    ) => {
       const res = await fetch(`${API_BASE_URL}/jobs/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site }),
+        body: JSON.stringify({
+          site,
+          date_filter: options?.dateFilter,
+          source_type: options?.sourceType,
+        }),
       });
       if (!res.ok) throw new Error("Failed to start scrape");
       return res.json();

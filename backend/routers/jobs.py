@@ -7,7 +7,7 @@ import logging
 from typing import Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from backend.db.models import Job, EmailDraft
@@ -37,6 +37,8 @@ class JobResponse(BaseModel):
     source_site: str
     source_url: str
     raw_post_text: str
+    source_type: str = "emails"
+    notes: Optional[str] = None
     status: str
     created_at: str
 
@@ -51,6 +53,8 @@ class JobResponse(BaseModel):
             source_site=job.source_site,
             source_url=job.source_url,
             raw_post_text=job.raw_post_text,
+            source_type=job.source_type,
+            notes=job.notes,
             status=job.status,
             created_at=job.created_at.isoformat(),
         )
@@ -66,6 +70,8 @@ class StatusUpdate(BaseModel):
 
 class ScrapeRequest(BaseModel):
     site: str  # "linkedin" | "naukri" | "all"
+    date_filter: Optional[str] = "r604800"  # r86400, r259200, r604800, r2592000
+    source_type: Optional[str] = "emails"  # "emails" | "manual"
 
 
 # --- Endpoints ---
@@ -75,13 +81,16 @@ class ScrapeRequest(BaseModel):
 async def list_jobs(
     status: Optional[str] = Query(None),
     site: Optional[str] = Query(None),
+    source_type: Optional[str] = Query(None),
 ):
-    """List all jobs with optional status and site filters."""
+    """List all jobs with optional status, site, and source_type filters."""
     query = {}
     if status:
         query["status"] = status
     if site:
         query["source_site"] = site
+    if source_type:
+        query["source_type"] = source_type
 
     jobs = await Job.find(query).sort("-created_at").to_list()
     return [JobResponse.from_doc(j) for j in jobs]
@@ -124,7 +133,7 @@ async def get_job(job_id: str):
 @router.patch("/{job_id}/status", response_model=JobResponse)
 async def update_job_status(job_id: str, update: StatusUpdate):
     """Update a job's status (used by kanban drag-and-drop)."""
-    allowed = {"found", "drafted", "approved", "sent", "replied", "ignored"}
+    allowed = {"found", "drafted", "approved", "sent", "replied", "ignored", "applied"}
     if update.status not in allowed:
         raise HTTPException(
             status_code=400,
@@ -140,44 +149,54 @@ async def update_job_status(job_id: str, update: StatusUpdate):
     return JobResponse.from_doc(job)
 
 
-@router.post("/scrape")
-async def trigger_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
-    """Trigger a scrape for a given site in the background."""
-    valid_sites = {"linkedin", "naukri", "all"}
-    if request.site not in valid_sites:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid site. Allowed: {', '.join(sorted(valid_sites))}",
-        )
+class NotesUpdate(BaseModel):
+    notes: str
 
-    async def run_scrape():
-        from backend.scrapers.linkedin import scrape_linkedin, set_ws_broadcast as set_li_ws
-        from backend.scrapers.naukri import scrape_naukri, set_ws_broadcast as set_nk_ws
+
+@router.patch("/{job_id}/notes", response_model=JobResponse)
+async def update_job_notes(job_id: str, update: NotesUpdate):
+    """Update a job's notes."""
+    job = await Job.get(PydanticObjectId(job_id))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job.notes = update.notes
+    await job.save()
+    return JobResponse.from_doc(job)
+
+
+@router.post("/scrape")
+async def trigger_scrape(request: ScrapeRequest):
+    """Trigger a scrape for a given site and wait for completion."""
+    from backend.scrapers.linkedin import scrape_linkedin, set_ws_broadcast as set_li_ws
+    from backend.scrapers.naukri import scrape_naukri, set_ws_broadcast as set_nk_ws
+
+    if _ws_broadcast:
+        set_li_ws(_ws_broadcast)
+        set_nk_ws(_ws_broadcast)
+
+    source_type = request.source_type or "emails"
+    date_filter = request.date_filter or "r604800"
+
+    try:
+        if request.site in ("linkedin", "all"):
+            if _ws_broadcast:
+                await _ws_broadcast("[System] Starting LinkedIn scrape...")
+            await scrape_linkedin(date_filter=date_filter, source_type=source_type)
+
+        if request.site in ("naukri", "all"):
+            if _ws_broadcast:
+                await _ws_broadcast("[System] Starting Naukri scrape...")
+            await scrape_naukri(date_filter=date_filter, source_type=source_type)
 
         if _ws_broadcast:
-            set_li_ws(_ws_broadcast)
-            set_nk_ws(_ws_broadcast)
-
-        try:
-            if request.site in ("linkedin", "all"):
-                if _ws_broadcast:
-                    await _ws_broadcast("[System] Starting LinkedIn scrape...")
-                await scrape_linkedin()
-
-            if request.site in ("naukri", "all"):
-                if _ws_broadcast:
-                    await _ws_broadcast("[System] Starting Naukri scrape...")
-                await scrape_naukri()
-
-            if _ws_broadcast:
-                await _ws_broadcast("[System] Scrape complete!")
-        except Exception as e:
-            logger.error(f"Scrape failed: {e}")
-            if _ws_broadcast:
-                await _ws_broadcast(f"[System] Scrape failed: {str(e)}")
-
-    background_tasks.add_task(run_scrape)
-    return {"message": f"Scrape started for: {request.site}"}
+            await _ws_broadcast("[System] Scrape complete!")
+        return {"message": f"Scrape completed for: {request.site}"}
+    except Exception as e:
+        logger.error(f"Scrape failed: {e}")
+        if _ws_broadcast:
+            await _ws_broadcast(f"[System] Scrape failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/{job_id}")
