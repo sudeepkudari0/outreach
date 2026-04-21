@@ -53,22 +53,28 @@ export const api = {
     },
 
     updateStatus: async (id: string, status: string): Promise<Job> => {
-      const res = await fetch(`${API_BASE_URL}/jobs/${id}/status`, {
+      const res = await fetch(`${DASHBOARD_API_BASE}/jobs/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error("Failed to update status");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to update status");
+      }
       return res.json();
     },
 
     updateNotes: async (id: string, notes: string): Promise<Job> => {
-      const res = await fetch(`${API_BASE_URL}/jobs/${id}/notes`, {
+      const res = await fetch(`${DASHBOARD_API_BASE}/jobs/${id}/notes`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes }),
       });
-      if (!res.ok) throw new Error("Failed to update notes");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to update notes");
+      }
       return res.json();
     },
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Job } from "@/lib/api";
@@ -53,19 +53,9 @@ const MANUAL_COLUMNS = [
 
 export default function KanbanBoard() {
   const queryClient = useQueryClient();
-  const [isMounted, setIsMounted] = useState(false);
   const [viewMode, setViewMode] = useState<"emails" | "manual">("manual");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [visitedJobs, setVisitedJobs] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setIsMounted(true);
-    // Load visited jobs from localStorage
-    const stored = localStorage.getItem("visitedJobs");
-    if (stored) {
-      setVisitedJobs(new Set(JSON.parse(stored)));
-    }
-  }, []);
 
   const handleVisitJob = (jobId: string) => {
     const newVisited = new Set(visitedJobs).add(jobId);
@@ -139,13 +129,6 @@ export default function KanbanBoard() {
     updateNotesMutation.mutate({ id: jobId, notes });
   };
 
-  if (!isMounted)
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-neutral-500" />
-      </div>
-    );
-
   const activeColumns = viewMode === "emails" ? COLUMNS : MANUAL_COLUMNS;
 
   const jobsByStatus = activeColumns.reduce(
@@ -164,12 +147,12 @@ export default function KanbanBoard() {
   ];
 
   return (
-    <div className="mt-4">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex gap-1 bg-neutral-900 p-1 rounded-lg">
+    <div className="mt-4 space-y-4 pb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-1 bg-neutral-900 p-1 rounded-lg w-full sm:w-auto">
           <button
             onClick={() => setViewMode("emails")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               viewMode === "emails"
                 ? "bg-blue-600 text-white"
                 : "text-neutral-400 hover:text-white"
@@ -180,7 +163,7 @@ export default function KanbanBoard() {
           </button>
           <button
             onClick={() => setViewMode("manual")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               viewMode === "manual"
                 ? "bg-blue-600 text-white"
                 : "text-neutral-400 hover:text-white"
@@ -191,12 +174,12 @@ export default function KanbanBoard() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Filter className="w-4 h-4 text-neutral-500" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200"
+            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 w-full sm:w-auto"
           >
             {filterOptions.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -212,7 +195,7 @@ export default function KanbanBoard() {
       </div>
 
       {viewMode === "emails" ? (
-        <div className="flex gap-4 h-[calc(100vh-180px)] overflow-x-auto pb-4 custom-scrollbar">
+        <div className="flex gap-4 h-[calc(100dvh-260px)] sm:h-[calc(100vh-190px)] overflow-x-auto pb-4 custom-scrollbar">
           <DragDropContext onDragEnd={onDragEnd}>
             {activeColumns.map((col) => {
               const columnJobs =
@@ -222,7 +205,7 @@ export default function KanbanBoard() {
               return (
                 <div
                   key={col.id}
-                  className="min-w-[300px] w-[300px] flex flex-col flex-shrink-0"
+                  className="w-[86vw] min-w-[86vw] sm:w-[320px] sm:min-w-[320px] flex flex-col flex-shrink-0"
                 >
                   <div className="flex items-center justify-between mb-3 px-1">
                     <h3 className="font-medium text-sm text-neutral-300">
@@ -264,72 +247,72 @@ export default function KanbanBoard() {
           </DragDropContext>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-800">
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Job Title
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Company
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Source
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Status
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Notes
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Date
-                </th>
-                <th className="text-left py-3 px-4 text-neutral-400 font-medium">
-                  Link
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                  </td>
-                </tr>
-              ) : jobs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-neutral-500">
-                    No jobs found.
-                  </td>
-                </tr>
-              ) : (
-                jobs.map((job) => {
-                  const isVisited = visitedJobs.has(job.id);
-                  return (
-                    <tr
-                      key={job.id}
-                      className={`border-b border-neutral-800 hover:bg-neutral-900/50 ${
-                        isVisited ? "bg-blue-900/10" : ""
-                      }`}
-                    >
-                      <td className="py-3 px-4 text-white max-w-[200px] truncate">
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="py-10 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-neutral-500" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="py-10 text-center text-neutral-500 bg-neutral-900/30 border border-neutral-800 rounded-xl">
+              No jobs found.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {jobs.map((job) => {
+                const isVisited = visitedJobs.has(job.id);
+                return (
+                  <article
+                    key={job.id}
+                    className={`rounded-xl border p-4 bg-neutral-900/40 ${
+                      isVisited
+                        ? "border-blue-500/40 ring-1 ring-blue-500/25"
+                        : "border-neutral-800"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-white line-clamp-2">
                         {job.title}
-                      </td>
-                      <td className="py-3 px-4 text-neutral-300">
+                      </h3>
+                      <a
+                        href={job.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => handleVisitJob(job.id)}
+                        className="text-blue-400 hover:text-blue-300 mt-0.5"
+                        aria-label="Open job post"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+
+                    <div className="mt-3 space-y-2 text-xs text-neutral-300">
+                      <p>
+                        <span className="text-neutral-500">Company:</span>{" "}
                         {job.company || "-"}
-                      </td>
-                      <td className="py-3 px-4 text-neutral-300 uppercase text-xs">
+                      </p>
+                      <p className="uppercase tracking-wide">
+                        <span className="text-neutral-500 normal-case">
+                          Source:
+                        </span>{" "}
                         {job.source_site}
-                      </td>
-                      <td className="py-3 px-4">
+                      </p>
+                      <p>
+                        <span className="text-neutral-500">Added:</span>{" "}
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3">
+                      <label className="block">
+                        <span className="text-xs text-neutral-500 mb-1 block">
+                          Status
+                        </span>
                         <select
                           value={job.status}
                           onChange={(e) =>
                             handleStatusChange(job.id, e.target.value)
                           }
-                          className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200"
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200"
                         >
                           {MANUAL_COLUMNS.map((col) => (
                             <option key={col.id} value={col.id}>
@@ -337,40 +320,30 @@ export default function KanbanBoard() {
                             </option>
                           ))}
                         </select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs text-neutral-500 mb-1 block">
+                          Notes
+                        </span>
+                        <textarea
                           defaultValue={job.notes || ""}
                           placeholder="Add notes..."
+                          rows={2}
                           onBlur={(e) => {
                             if (e.target.value !== (job.notes || "")) {
                               handleNotesChange(job.id, e.target.value);
                             }
                           }}
-                          className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200 w-[150px] placeholder-neutral-600"
+                          className="w-full resize-y min-h-16 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600"
                         />
-                      </td>
-                      <td className="py-3 px-4 text-neutral-400">
-                        {new Date(job.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <a
-                          href={job.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => handleVisitJob(job.id)}
-                          className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </label>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

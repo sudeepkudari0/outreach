@@ -1,7 +1,7 @@
 "use server";
 
 import { ObjectId } from "mongodb";
-import { getMongoDb } from "@/server/mongodb";
+import { getMongoCandidateDbs } from "@/server/mongodb";
 
 const BACKEND_API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -87,6 +87,42 @@ async function fetchBackendJson<T>(path: string): Promise<T | null> {
   }
 }
 
+async function fetchBackendMutation<T>(
+  path: string,
+  method: "PATCH" | "PUT" | "POST" | "DELETE",
+  body?: unknown,
+): Promise<T | null> {
+  try {
+    const res = await fetch(`${BACKEND_API_BASE}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
+
+    if (res.ok) {
+      return (await res.json()) as T;
+    }
+
+    if (res.status < 500) {
+      const payload = await res.json().catch(() => ({}));
+      const message =
+        typeof payload?.detail === "string"
+          ? payload.detail
+          : `Backend request failed (${res.status})`;
+      throw new HttpError(res.status, message);
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+    return null;
+  }
+}
+
 function toIsoString(value: unknown): string {
   if (value instanceof Date) {
     return value.toISOString();
@@ -145,20 +181,30 @@ export async function getJobsWithFallback(filters: {
     return backendData;
   }
 
-  const db = await getMongoDb();
   const query: Record<string, string> = {};
 
   if (filters.status) query.status = filters.status;
   if (filters.site) query.source_site = filters.site;
   if (filters.sourceType) query.source_type = filters.sourceType;
 
-  const jobs = await db
-    .collection("jobs")
-    .find(query)
-    .sort({ created_at: -1 })
-    .toArray();
+  const dbs = await getMongoCandidateDbs();
+  let lastJobs: Record<string, unknown>[] = [];
 
-  return jobs.map((job) => mapJobDoc(job as unknown as Record<string, unknown>));
+  for (const db of dbs) {
+    const jobs = (await db
+      .collection("jobs")
+      .find(query)
+      .sort({ created_at: -1 })
+      .toArray()) as unknown as Record<string, unknown>[];
+
+    if (jobs.length > 0) {
+      return jobs.map((job) => mapJobDoc(job));
+    }
+
+    lastJobs = jobs;
+  }
+
+  return lastJobs.map((job) => mapJobDoc(job));
 }
 
 export async function getJobWithDraftFallback(
@@ -173,23 +219,23 @@ export async function getJobWithDraftFallback(
     throw new HttpError(404, "Job not found");
   }
 
-  const db = await getMongoDb();
-  const job = await db
-    .collection("jobs")
-    .findOne({ _id: new ObjectId(jobId) });
+  const dbs = await getMongoCandidateDbs();
 
-  if (!job) {
-    throw new HttpError(404, "Job not found");
+  for (const db of dbs) {
+    const job = await db.collection("jobs").findOne({ _id: new ObjectId(jobId) });
+    if (!job) continue;
+
+    const draft = await db.collection("email_drafts").findOne({ job_id: jobId });
+
+    return {
+      ...mapJobDoc(job as unknown as Record<string, unknown>),
+      draft: draft
+        ? mapDraftDoc(draft as unknown as Record<string, unknown>)
+        : null,
+    };
   }
 
-  const draft = await db.collection("email_drafts").findOne({ job_id: jobId });
-
-  return {
-    ...mapJobDoc(job as unknown as Record<string, unknown>),
-    draft: draft
-      ? mapDraftDoc(draft as unknown as Record<string, unknown>)
-      : null,
-  };
+  throw new HttpError(404, "Job not found");
 }
 
 export async function getDraftWithFallback(jobId: string): Promise<DashboardDraft> {
@@ -198,14 +244,15 @@ export async function getDraftWithFallback(jobId: string): Promise<DashboardDraf
     return backendData;
   }
 
-  const db = await getMongoDb();
-  const draft = await db.collection("email_drafts").findOne({ job_id: jobId });
-
-  if (!draft) {
-    throw new HttpError(404, "Draft not found for this job");
+  const dbs = await getMongoCandidateDbs();
+  for (const db of dbs) {
+    const draft = await db.collection("email_drafts").findOne({ job_id: jobId });
+    if (draft) {
+      return mapDraftDoc(draft as unknown as Record<string, unknown>);
+    }
   }
 
-  return mapDraftDoc(draft as unknown as Record<string, unknown>);
+  throw new HttpError(404, "Draft not found for this job");
 }
 
 function utcDayStart(date = new Date()): Date {
@@ -220,7 +267,7 @@ export async function getStatsWithFallback(): Promise<DashboardStats> {
     return backendData;
   }
 
-  const db = await getMongoDb();
+  const db = await pickBestFallbackDb();
   const jobs = db.collection("jobs");
   const drafts = db.collection("email_drafts");
 
@@ -279,4 +326,99 @@ export async function getStatsWithFallback(): Promise<DashboardStats> {
   };
 }
 
+export async function updateJobStatusWithFallback(
+  jobId: string,
+  status: string,
+): Promise<DashboardJob> {
+  const backendData = await fetchBackendMutation<DashboardJob>(
+    `/jobs/${jobId}/status`,
+    "PATCH",
+    { status },
+  );
+  if (backendData) {
+    return backendData;
+  }
+
+  const allowed = new Set([
+    "found",
+    "drafted",
+    "approved",
+    "sent",
+    "replied",
+    "ignored",
+    "applied",
+  ]);
+  if (!allowed.has(status)) {
+    throw new HttpError(400, "Invalid status");
+  }
+
+  if (!ObjectId.isValid(jobId)) {
+    throw new HttpError(404, "Job not found");
+  }
+
+  const dbs = await getMongoCandidateDbs();
+  for (const db of dbs) {
+    const result = await db.collection("jobs").findOneAndUpdate(
+      { _id: new ObjectId(jobId) },
+      { $set: { status } },
+      { returnDocument: "after" },
+    );
+
+    if (result) {
+      return mapJobDoc(result as unknown as Record<string, unknown>);
+    }
+  }
+
+  throw new HttpError(404, "Job not found");
+}
+
+export async function updateJobNotesWithFallback(
+  jobId: string,
+  notes: string,
+): Promise<DashboardJob> {
+  const backendData = await fetchBackendMutation<DashboardJob>(
+    `/jobs/${jobId}/notes`,
+    "PATCH",
+    { notes },
+  );
+  if (backendData) {
+    return backendData;
+  }
+
+  if (!ObjectId.isValid(jobId)) {
+    throw new HttpError(404, "Job not found");
+  }
+
+  const dbs = await getMongoCandidateDbs();
+  for (const db of dbs) {
+    const result = await db.collection("jobs").findOneAndUpdate(
+      { _id: new ObjectId(jobId) },
+      { $set: { notes } },
+      { returnDocument: "after" },
+    );
+
+    if (result) {
+      return mapJobDoc(result as unknown as Record<string, unknown>);
+    }
+  }
+
+  throw new HttpError(404, "Job not found");
+}
+
 export { HttpError };
+
+async function pickBestFallbackDb() {
+  const dbs = await getMongoCandidateDbs();
+  for (const db of dbs) {
+    const [jobCount, draftCount] = await Promise.all([
+      db.collection("jobs").estimatedDocumentCount(),
+      db.collection("email_drafts").estimatedDocumentCount(),
+    ]);
+
+    if (jobCount > 0 || draftCount > 0) {
+      return db;
+    }
+  }
+
+  return dbs[0];
+}
