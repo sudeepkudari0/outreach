@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Building2,
   Globe,
-  Linkedin,
   Briefcase,
   ExternalLink,
   Loader2,
@@ -46,7 +45,7 @@ export default function EmailDraftPage() {
   const SiteIcon = () => {
     switch (job.source_site) {
       case "linkedin":
-        return <Linkedin className="w-4 h-4" />;
+        return <Briefcase className="w-4 h-4" />;
       case "naukri":
         return <Briefcase className="w-4 h-4" />;
       default:

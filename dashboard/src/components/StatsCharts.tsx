@@ -31,18 +31,20 @@ export default function StatsCharts() {
   }
 
   // Format data for Recharts
-  const dailyData = stats.sent_per_day.map((d) => ({
-    name: new Date(d.date).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
+  const dailyData = stats.sent_per_day.map(
+    (d: { date: string; count: number }) => ({
+      name: new Date(d.date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
+      count: d.count,
     }),
-    count: d.count,
-  }));
+  );
 
   const siteData = Object.entries(stats.by_site).map(([site, data]) => ({
     name: site as string,
-    found: data.found,
-    sent: data.sent,
+    found: (data as { found: number })?.found,
+    sent: (data as { sent: number })?.sent,
   }));
 
   const reachLimit = stats.sent_today >= stats.daily_limit;
