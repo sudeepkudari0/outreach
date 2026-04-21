@@ -1,5 +1,6 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const DASHBOARD_API_BASE = "/api/dashboard";
 
 type Job = {
   id: string;
@@ -36,7 +37,7 @@ export const api = {
       if (site) params.append("site", site);
       if (source_type) params.append("source_type", source_type);
 
-      const res = await fetch(`${API_BASE_URL}/jobs?${params.toString()}`, {
+      const res = await fetch(`${DASHBOARD_API_BASE}/jobs?${params.toString()}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch jobs");
@@ -44,7 +45,7 @@ export const api = {
     },
 
     get: async (id: string): Promise<JobWithDraft> => {
-      const res = await fetch(`${API_BASE_URL}/jobs/${id}`, {
+      const res = await fetch(`${DASHBOARD_API_BASE}/jobs/${id}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch job");
@@ -94,7 +95,7 @@ export const api = {
 
   emails: {
     getDraft: async (jobId: string): Promise<Draft> => {
-      const res = await fetch(`${API_BASE_URL}/emails/${jobId}`, {
+      const res = await fetch(`${DASHBOARD_API_BASE}/emails/${jobId}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch draft");
@@ -156,7 +157,7 @@ export const api = {
 
   stats: {
     get: async () => {
-      const res = await fetch(`${API_BASE_URL}/stats`, { cache: "no-store" });
+      const res = await fetch(`${DASHBOARD_API_BASE}/stats`, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
