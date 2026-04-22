@@ -1,10 +1,13 @@
 "use client";
 
 import { Draggable } from "@hello-pangea/dnd";
-import { Clock, Building2, Briefcase } from "lucide-react";
-import type { Job } from "@/lib/api";
+import { Clock, Building2, Briefcase, User, Mail, Eye } from "lucide-react";
+import { type Job } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import AgentDialog from "./AgentDialog";
+import EmailDialog from "./EmailDialog";
 
 interface JobCardProps {
   job: Job;
@@ -13,6 +16,7 @@ interface JobCardProps {
 
 export default function JobCard({ job, index }: JobCardProps) {
   const router = useRouter();
+  const [showEmail, setShowEmail] = useState(false);
 
   const SiteIcon = () => {
     switch (job.source_site) {
@@ -75,25 +79,50 @@ export default function JobCard({ job, index }: JobCardProps) {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5">
-              <div className="w-3.5 h-3.5 flex items-center justify-center bg-neutral-800 text-[10px] rounded flex-shrink-0 font-medium">
-                @
+            {job.recruiter_name && (
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <User className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{job.recruiter_name}</span>
               </div>
-              <span
-                className="truncate hover:text-neutral-300 transition-colors"
-                title={job.email}
-              >
-                {job.email}
-              </span>
+            )}
+
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+              {showEmail ? (
+                <span
+                  className="truncate hover:text-neutral-300 transition-colors"
+                  title={job.email}
+                >
+                  {job.email}
+                </span>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowEmail(true);
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white transition-colors bg-neutral-800 px-1.5 py-0.5 rounded cursor-pointer"
+                >
+                  <Eye className="w-3 h-3" />
+                  Show Email
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-1.5 mt-0.5 mt-auto pt-2 border-t border-neutral-800/50">
-              <Clock className="w-3 h-3 flex-shrink-0" />
-              <span>
-                {formatDistanceToNow(new Date(job.created_at), {
-                  addSuffix: true,
-                })}
-              </span>
+            <div className="flex items-center gap-1.5 mt-0.5 mt-auto pt-2 border-t border-neutral-800/50 justify-between">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3 h-3 flex-shrink-0" />
+                <span>
+                  {formatDistanceToNow(new Date(job.created_at), {
+                    addSuffix: true,
+                  })}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <EmailDialog job={job} />
+                <AgentDialog job={job} />
+              </div>
             </div>
           </div>
         </div>

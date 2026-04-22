@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.db import init_db
 from backend.scheduler import start_scheduler, stop_scheduler
 from backend.routers import jobs, emails, stats
+from backend.agent import router as agent_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +77,7 @@ app = FastAPI(
 # CORS — allow dashboard at localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,6 +87,7 @@ app.add_middleware(
 app.include_router(jobs.router)
 app.include_router(emails.router)
 app.include_router(stats.router)
+app.include_router(agent_router.router)
 
 
 # --- WebSocket endpoint ---

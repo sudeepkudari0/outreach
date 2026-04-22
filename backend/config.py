@@ -27,8 +27,8 @@ class Settings(BaseSettings):
 
     # Grok
     grok_api_key: Optional[str] = None
-    grok_base_url: str = "https://api.x.ai/v1"
-    grok_model: str = "grok-3"
+    grok_base_url: str = "https://api.groq.com/openai/v1"
+    grok_model: str = "llama-3.3-70b-versatile"
 
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # LinkedIn scraper
     linkedin_search_keywords: str = "full stack developer"
-    linkedin_search_location: str = "Bangalore"
+    linkedin_search_location: Optional[str] = None
     linkedin_cookies_path: str = "backend/session/linkedin_cookies.json"
 
     # User profile — used by AI email writer

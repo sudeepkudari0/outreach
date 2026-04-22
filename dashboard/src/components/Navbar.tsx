@@ -1,8 +1,11 @@
 "use client";
+"use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Mail, BarChart3, Settings } from "lucide-react";
+import VerifyKeyDialog from "./VerifyKeyDialog";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -49,6 +52,8 @@ export default function Navbar() {
                   </Link>
                 );
               })}
+              <div className="mx-1 h-5 w-px bg-neutral-800" />
+              <VerifyKeyDialog />
             </div>
           </div>
         </div>

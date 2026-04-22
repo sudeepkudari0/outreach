@@ -51,6 +51,10 @@ class DraftUpdate(BaseModel):
     body: Optional[str] = None
 
 
+class SendPayload(BaseModel):
+    to_email: Optional[str] = None
+
+
 # --- Helper ---
 
 
@@ -143,7 +147,7 @@ async def approve_draft(job_id: str):
 
 
 @router.post("/{job_id}/send")
-async def send_draft(job_id: str):
+async def send_draft(job_id: str, payload: Optional[SendPayload] = None):
     """Send an email for a specific job. Enforces daily send limit."""
     # Check daily limit
     sent_today = await _get_today_send_count()
@@ -161,9 +165,16 @@ async def send_draft(job_id: str):
     if not draft or not draft.subject or not draft.body:
         raise HTTPException(status_code=400, detail="Draft is missing subject or body")
 
+    target_email = job.email
+    if payload and payload.to_email:
+        target_email = payload.to_email
+
+    if not target_email:
+        raise HTTPException(status_code=400, detail="No target email address available")
+
     # Send the email
     message_id = await send_email(
-        to=job.email,
+        to=target_email,
         subject=draft.subject,
         body=draft.body,
     )
@@ -173,12 +184,14 @@ async def send_draft(job_id: str):
     await draft.save()
 
     job.status = "sent"
+    if payload and payload.to_email and payload.to_email != job.email:
+        job.email = payload.to_email
     await job.save()
 
     return {
         "message": "Email sent successfully",
         "gmail_message_id": message_id,
-        "to": job.email,
+        "to": target_email,
     }
 
 

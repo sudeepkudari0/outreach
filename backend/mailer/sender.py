@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Gmail API send scope
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
-RESUME_PATH = Path("resume/resume.pdf")
+RESUME_PATH = Path(__file__).parent.parent.parent / "resume" / "SudeepKudariResume.pdf"
 
 
 def _get_gmail_credentials() -> Credentials:
@@ -78,7 +78,7 @@ def _build_email_message(
         attachment.add_header(
             "Content-Disposition",
             "attachment",
-            filename="resume.pdf",
+            filename="SudeepKudariResume.pdf",
         )
         message.attach(attachment)
     elif attach_resume:

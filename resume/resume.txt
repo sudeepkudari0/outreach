@@ -1,0 +1,44 @@
+Sudeep Kudari
+Portfolio: https://www.sudeepkudari.online
+Email: sudeepkudari0@gmail.com
+Phone: +91 8618078136
+LinkedIn: https://www.linkedin.com/in/sudeep-kudari
+Full-Stack Software Engineer with strong backend and system design expertise. Experienced in
+building scalable SaaS platforms, designing APIs, and delivering end-to-end applications from UI to
+distributed backend systems.
+Employment History
+Software Engineer, ThinkRoman Ventures
+Duration: [Feb 2024] — Present
+Technologies Used: [Tech Stack: TypeScript, Node.js, MongoDB, Next.js, Prisma, Redis, Java, Spring Boot,
+MySQL, Kafka, Aerospike, AWS (Lambda, EC2, S3), JUnit]
+-
+As Full-Time Developer (Feb 2024 – Present):
+-Designed end-to-end Saas systems with multi-tenant architecture using Next.js and backend
+APIs.
+-Built reusable React component library with Typescript, improving UI consistency.
+-Managed complex client-side state using Zustand/Redux, handling real time data updates.
+-Built backend services with optimized database queries, improving response performance.
+-Implemented Redis caching and kafka pipelines for asynchronous processing and scalability.
+-Designed robust APIs for third-party integrations (Payments, WhatsApp, Zoom) with
+retry and consistency handling.
+-Optimized SSR and data-fetching strategies, improving frontend performance.
+Projects
+OutPost – AI Social Scheduler & Content Generator |https://outpost.sudeepkudari.online
+-Built distributed scheduling system for automated posts across platforms.
+-Designed queue-based execution and concurrency handling.
+-Implemented API rate limiting and retry mechanisms
+Forms Factory – Collaborative Form Builder & Submission|https://forms.sudeepkudari.online
+-
+-
+-
+Designed an interactive form builder UI with drag and drop components and live preview.
+Implemented RBAC and secure multi-user systems.
+Built webhook and export pipelines
+Skills
+Frontend: React, Next.js, Typescript, Tailwind CSS, HTML/CSS
+Backend: Node.js, Spring Boot, Java, Python, Kafka, Redis
+Databases: MongoDB, MySQL, PostgreSQL
+Cloud/DevOps: AWS (S3, EC2, Lambda), Git, Linux
+Education
+Bachelor of Technology in Information Science, New Horizon College of Engineering, Bangalore
+(June 2019 — August 2023) | CGPA - 7.6

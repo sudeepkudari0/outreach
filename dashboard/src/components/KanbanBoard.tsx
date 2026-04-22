@@ -5,12 +5,17 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Job } from "@/lib/api";
 import JobCard from "./JobCard";
+import AgentDialog from "./AgentDialog";
+import EmailDialog from "./EmailDialog";
 import {
   Loader2,
   Table2,
   LayoutGrid,
   ExternalLink,
   Filter,
+  User,
+  Mail,
+  Eye,
 } from "lucide-react";
 
 const COLUMNS = [
@@ -49,6 +54,11 @@ const MANUAL_COLUMNS = [
     color: "bg-cyan-900/20 border-cyan-900/50",
   },
   { id: "ignored", title: "Ignored", color: "bg-red-900/20 border-red-900/50" },
+  {
+    id: "sent",
+    title: "Email Sent",
+    color: "bg-green-900/20 border-green-900/50",
+  },
 ];
 
 export default function KanbanBoard() {
@@ -56,6 +66,16 @@ export default function KanbanBoard() {
   const [viewMode, setViewMode] = useState<"emails" | "manual">("manual");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [visitedJobs, setVisitedJobs] = useState<Set<string>>(new Set());
+  const [shownEmails, setShownEmails] = useState<Set<string>>(new Set());
+
+  const toggleEmail = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShownEmails((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   const handleVisitJob = (jobId: string) => {
     const newVisited = new Set(visitedJobs).add(jobId);
@@ -273,16 +293,20 @@ export default function KanbanBoard() {
                       <h3 className="text-sm font-semibold text-white line-clamp-2">
                         {job.title}
                       </h3>
-                      <a
-                        href={job.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => handleVisitJob(job.id)}
-                        className="text-blue-400 hover:text-blue-300 mt-0.5"
-                        aria-label="Open job post"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <EmailDialog job={job} />
+                        <AgentDialog job={job} />
+                        <a
+                          href={job.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => handleVisitJob(job.id)}
+                          className="text-blue-400 hover:text-blue-300 mt-0.5"
+                          aria-label="Open job post"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </div>
 
                     <div className="mt-3 space-y-2 text-xs text-neutral-300">
@@ -290,6 +314,36 @@ export default function KanbanBoard() {
                         <span className="text-neutral-500">Company:</span>{" "}
                         {job.company || "-"}
                       </p>
+
+                      {job.recruiter_name && (
+                        <p className="flex items-center gap-1.5 text-neutral-300">
+                          <User className="w-3.5 h-3.5 flex-shrink-0 text-neutral-500" />
+                          <span className="truncate">{job.recruiter_name}</span>
+                        </p>
+                      )}
+
+                      {job.email && (
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Mail className="w-3.5 h-3.5 flex-shrink-0 text-neutral-500" />
+                          {shownEmails.has(job.id) ? (
+                            <span
+                              className="truncate hover:text-neutral-300 transition-colors"
+                              title={job.email}
+                            >
+                              {job.email}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => toggleEmail(job.id, e)}
+                              className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white transition-colors bg-neutral-800 px-1.5 py-0.5 rounded cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3" />
+                              Show Email
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       <p className="uppercase tracking-wide">
                         <span className="text-neutral-500 normal-case">
                           Source:

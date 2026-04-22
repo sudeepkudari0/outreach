@@ -93,12 +93,13 @@ async def scrape_linkedin(
     Returns the number of new jobs found.
     """
     keywords = quote_plus(settings.linkedin_search_keywords)
-    location = quote_plus(settings.linkedin_search_location)
-    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&location={location}&f_TPR={date_filter}"
+    location_param = f"&location={quote_plus(settings.linkedin_search_location)}" if getattr(settings, "linkedin_search_location", None) else ""
+    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}{location_param}&f_TPR={date_filter}"
 
     await _log(f"=== Starting LinkedIn scrape ===")
     await _log(f"Search keywords: {settings.linkedin_search_keywords}")
-    await _log(f"Search location: {settings.linkedin_search_location}")
+    if getattr(settings, "linkedin_search_location", None):
+        await _log(f"Search location: {settings.linkedin_search_location}")
     await _log(f"Date filter: {date_filter}")
     await _log(f"Source type: {source_type}")
     await _log(f"Target URL: {start_url}")

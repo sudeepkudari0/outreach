@@ -10,8 +10,9 @@ type Job = {
   email: string;
   source_site: string;
   source_url: string;
+  company_domain?: string | null;
   raw_post_text: string;
-  source_type: "emails" | "manual";
+  source_type: "emails" | "manual" | "agent";
   notes: string | null;
   status: string;
   created_at: string;
@@ -31,15 +32,22 @@ type JobWithDraft = Job & { draft: Draft | null };
 
 export const api = {
   jobs: {
-    list: async (status?: string, site?: string, source_type?: string): Promise<Job[]> => {
+    list: async (
+      status?: string,
+      site?: string,
+      source_type?: string,
+    ): Promise<Job[]> => {
       const params = new URLSearchParams();
       if (status) params.append("status", status);
       if (site) params.append("site", site);
       if (source_type) params.append("source_type", source_type);
 
-      const res = await fetch(`${DASHBOARD_API_BASE}/jobs?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `${DASHBOARD_API_BASE}/jobs?${params.toString()}`,
+        {
+          cache: "no-store",
+        },
+      );
       if (!res.ok) throw new Error("Failed to fetch jobs");
       return res.json();
     },
@@ -138,9 +146,11 @@ export const api = {
       return res.json();
     },
 
-    send: async (jobId: string) => {
+    send: async (jobId: string, toEmail?: string) => {
       const res = await fetch(`${API_BASE_URL}/emails/${jobId}/send`, {
         method: "POST",
+        headers: toEmail ? { "Content-Type": "application/json" } : undefined,
+        body: toEmail ? JSON.stringify({ to_email: toEmail }) : undefined,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -163,7 +173,9 @@ export const api = {
 
   stats: {
     get: async () => {
-      const res = await fetch(`${DASHBOARD_API_BASE}/stats`, { cache: "no-store" });
+      const res = await fetch(`${DASHBOARD_API_BASE}/stats`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
@@ -179,6 +191,39 @@ export const api = {
         body: formData,
       });
       if (!res.ok) throw new Error("Failed to upload resume");
+      return res.json();
+    },
+  },
+
+  agent: {
+    run: async (linkedinUrl: string, jobId?: string) => {
+      const res = await fetch(`${API_BASE_URL}/agent/find-and-draft`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          linkedin_url: linkedinUrl,
+          ...(jobId ? { job_id: jobId } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Agent workflow failed");
+      }
+      return res.json();
+    },
+
+    verifyKey: async () => {
+      const res = await fetch(`${API_BASE_URL}/agent/verify-key`, {
+        method: "GET",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to verify key");
+      }
       return res.json();
     },
   },

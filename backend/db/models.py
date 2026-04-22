@@ -14,12 +14,13 @@ class Job(Document):
 
     title: str
     company: Optional[str] = None
+    company_domain: Optional[str] = None
     recruiter_name: Optional[str] = None
     email: Indexed(str, unique=True)  # type: ignore[valid-type]
     source_site: Literal["linkedin", "naukri", "instahyre"]
     source_url: str
     raw_post_text: str
-    source_type: Literal["emails", "manual"] = "emails"
+    source_type: Literal["emails", "manual", "agent"] = "emails"
     notes: Optional[str] = None
     status: Literal[
         "found", "drafted", "approved", "sent", "replied", "ignored", "applied"
