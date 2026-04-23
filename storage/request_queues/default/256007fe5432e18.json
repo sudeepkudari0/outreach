@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.linkedin.com/jobs/view/4381704115",
+  "url": "https://www.linkedin.com/jobs/view/4381704115",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-04-22 08:41:55.681187+00:00"
+}

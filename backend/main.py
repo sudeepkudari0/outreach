@@ -74,10 +74,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow dashboard at localhost:3000
+# CORS — allow dashboard at localhost:3000 and Vercel deployments
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://outreach.sudeepkudari.online",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

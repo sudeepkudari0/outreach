@@ -3,10 +3,10 @@
   "forefront_sequence_counter": 0,
   "forefront_requests": {},
   "regular_requests": {
-    "https://www.linkedin.com/jobs/view/4404098144": 0
+    "https://www.linkedin.com/jobs/search?f_tpr=r86400&keywords=full+stack+developer&location=bangalore": 0
   },
   "in_progress_requests": [],
   "handled_requests": [
-    "https://www.linkedin.com/jobs/view/4404098144"
+    "https://www.linkedin.com/jobs/search?f_tpr=r86400&keywords=full+stack+developer&location=bangalore"
   ]
 }

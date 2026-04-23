@@ -91,6 +91,7 @@ export const api = {
       options?: {
         dateFilter?: "r86400" | "r259200" | "r604800" | "r2592000";
         sourceType?: "emails" | "manual";
+        limit?: number;
       },
     ) => {
       const res = await fetch(`${API_BASE_URL}/jobs/scrape`, {
@@ -100,6 +101,7 @@ export const api = {
           site,
           date_filter: options?.dateFilter,
           source_type: options?.sourceType,
+          limit: options?.limit,
         }),
       });
       if (!res.ok) throw new Error("Failed to start scrape");

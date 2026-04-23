@@ -34,6 +34,7 @@ async def _log(message: str) -> None:
 async def scrape_naukri(
     date_filter: str = "r604800",
     source_type: str = "emails",
+    limit: int = 5,
 ) -> int:
     start_url = "https://www.naukri.com/full-stack-developer-jobs-in-bangalore"
 
@@ -45,8 +46,9 @@ async def scrape_naukri(
 
     new_jobs_count = 0
 
+    requests_limit = limit + 10 if source_type == "emails" else 2
     crawler = BeautifulSoupCrawler(
-        max_requests_per_crawl=50,
+        max_requests_per_crawl=requests_limit,
     )
 
     @crawler.router.default_handler
@@ -79,8 +81,10 @@ async def scrape_naukri(
 
         # For manual mode, save all links directly without crawling detail pages
         if source_type == "manual":
-            await _log(f"[MANUAL] Saving {len(urls)} jobs directly from listing...")
+            await _log(f"[MANUAL] Saving up to {limit} new jobs directly from listing (found {len(urls)} links)...")
             for i, url in enumerate(urls):
+                if new_jobs_count >= limit:
+                    break
                 job = await save_job_if_new(
                     title=f"Job #{i + 1}",
                     company=None,
@@ -99,13 +103,20 @@ async def scrape_naukri(
             return
 
         # For emails mode, crawl each detail page
+        queued_count = 0
         for i, url in enumerate(urls):
+            if queued_count >= limit:
+                break
             await _log(f"Queueing job {i + 1}/{len(urls)}: {url}")
             await context.add_requests([url])
+            queued_count += 1
 
     @crawler.router.handler("job_detail")
     async def detail_handler(context: BeautifulSoupCrawlingContext) -> None:
         nonlocal new_jobs_count
+        if new_jobs_count >= limit:
+            return  # Early exit if limit reached
+
         soup = context.soup
 
         await _log(f"--- Scraping job detail: {context.request.url}")

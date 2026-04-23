@@ -87,27 +87,27 @@ def _is_authwall(title: str, url: str) -> bool:
 async def scrape_linkedin(
     date_filter: str = "r604800",
     source_type: str = "emails",
+    limit: int = 5,
 ) -> int:
     """
     Scrape LinkedIn jobs based on configured keywords and location.
     Returns the number of new jobs found.
     """
     keywords = quote_plus(settings.linkedin_search_keywords)
-    location_param = f"&location={quote_plus(settings.linkedin_search_location)}" if getattr(settings, "linkedin_search_location", None) else ""
-    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}{location_param}&f_TPR={date_filter}"
+    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&f_TPR={date_filter}"
 
     await _log(f"=== Starting LinkedIn scrape ===")
     await _log(f"Search keywords: {settings.linkedin_search_keywords}")
-    if getattr(settings, "linkedin_search_location", None):
-        await _log(f"Search location: {settings.linkedin_search_location}")
     await _log(f"Date filter: {date_filter}")
     await _log(f"Source type: {source_type}")
     await _log(f"Target URL: {start_url}")
 
     new_jobs_count = 0
 
+    requests_limit = limit + 10 if source_type == "emails" else 2
+
     crawler = PlaywrightCrawler(
-        max_requests_per_crawl=50,
+        max_requests_per_crawl=requests_limit,
         headless=True,
         browser_type="chromium",
     )
@@ -151,8 +151,10 @@ async def scrape_linkedin(
 
         # For manual mode, save all links directly without crawling detail pages
         if source_type == "manual":
-            await _log(f"[MANUAL] Saving {len(urls)} jobs directly from listing...")
+            await _log(f"[MANUAL] Saving up to {limit} new jobs directly from listing (found {len(urls)} links)...")
             for i, url in enumerate(urls):
+                if new_jobs_count >= limit:
+                    break
                 job = await save_job_if_new(
                     title=f"Job #{i + 1}",
                     company=None,
@@ -171,13 +173,20 @@ async def scrape_linkedin(
             return
 
         # For emails mode, crawl each detail page
+        queued_count = 0
         for i, url in enumerate(urls):
+            if queued_count >= limit:
+                break
             await _log(f"Queueing job {i + 1}/{len(urls)}: {url}")
             await context.add_requests([url])
+            queued_count += 1
 
     @crawler.router.handler("job_detail")
     async def detail_handler(context: PlaywrightCrawlingContext) -> None:
         nonlocal new_jobs_count
+        if new_jobs_count >= limit:
+            return  # Early exit if we reached the limit
+
         page = context.page
 
         title = await page.title()

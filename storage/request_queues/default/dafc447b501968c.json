@@ -1,6 +1,6 @@
 {
-  "unique_key": "https://www.linkedin.com/jobs/view/4404098144",
-  "url": "https://www.linkedin.com/jobs/view/4404098144",
+  "unique_key": "https://www.linkedin.com/jobs/view/4403953601",
+  "url": "https://www.linkedin.com/jobs/view/4403953601",
   "method": "GET",
   "payload": null,
   "headers": {},
@@ -12,5 +12,5 @@
   "retry_count": 0,
   "no_retry": false,
   "loaded_url": null,
-  "handled_at": "2026-04-22 08:25:55.536746+00:00"
+  "handled_at": "2026-04-22 08:42:26.530118+00:00"
 }

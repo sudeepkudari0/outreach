@@ -18,15 +18,17 @@ const DATE_FILTERS: { value: DateFilter; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const [scrapeTarget, setScrapeTarget] = useState<ScrapeTarget>("all");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("r604800");
-  const [sourceType, setSourceType] = useState<SourceType>("emails");
+  const [scrapeTarget, setScrapeTarget] = useState<ScrapeTarget>("linkedin");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("r86400");
+  const [sourceType, setSourceType] = useState<SourceType>("manual");
+  const [limit, setLimit] = useState<number>(5);
 
   const scrapeMutation = useMutation({
     mutationFn: () =>
       api.jobs.scrape(scrapeTarget, {
         dateFilter,
         sourceType,
+        limit,
       }),
   });
 
@@ -84,6 +86,18 @@ export default function SettingsPage() {
         >
           <option value="emails">Extract Emails</option>
           <option value="manual">Manual (Save Links Only)</option>
+        </select>
+
+        <select
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+          disabled={scrapeMutation.isPending}
+          className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors text-neutral-200 disabled:opacity-50"
+        >
+          <option value={5}>5 Records</option>
+          <option value={10}>10 Records</option>
+          <option value={20}>20 Records</option>
+          <option value={30}>30 Records</option>
         </select>
 
         <button

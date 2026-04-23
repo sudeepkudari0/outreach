@@ -72,6 +72,7 @@ class ScrapeRequest(BaseModel):
     site: str  # "linkedin" | "naukri" | "all"
     date_filter: Optional[str] = "r604800"  # r86400, r259200, r604800, r2592000
     source_type: Optional[str] = "emails"  # "emails" | "manual"
+    limit: Optional[int] = 5
 
 
 # --- Endpoints ---
@@ -177,17 +178,18 @@ async def trigger_scrape(request: ScrapeRequest):
 
     source_type = request.source_type or "emails"
     date_filter = request.date_filter or "r604800"
+    limit = request.limit or 5
 
     try:
         if request.site in ("linkedin", "all"):
             if _ws_broadcast:
                 await _ws_broadcast("[System] Starting LinkedIn scrape...")
-            await scrape_linkedin(date_filter=date_filter, source_type=source_type)
+            await scrape_linkedin(date_filter=date_filter, source_type=source_type, limit=limit)
 
         if request.site in ("naukri", "all"):
             if _ws_broadcast:
                 await _ws_broadcast("[System] Starting Naukri scrape...")
-            await scrape_naukri(date_filter=date_filter, source_type=source_type)
+            await scrape_naukri(date_filter=date_filter, source_type=source_type, limit=limit)
 
         if _ws_broadcast:
             await _ws_broadcast("[System] Scrape complete!")
