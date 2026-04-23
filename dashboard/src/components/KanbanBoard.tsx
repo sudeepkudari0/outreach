@@ -16,6 +16,7 @@ import {
   User,
   Mail,
   Eye,
+  Bot,
 } from "lucide-react";
 
 const COLUMNS = [
@@ -67,6 +68,39 @@ export default function KanbanBoard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [visitedJobs, setVisitedJobs] = useState<Set<string>>(new Set());
   const [shownEmails, setShownEmails] = useState<Set<string>>(new Set());
+  const [isRunningAgents, setIsRunningAgents] = useState(false);
+  const [agentProgress, setAgentProgress] = useState({ current: 0, total: 0 });
+
+  const runAllAgents = async () => {
+    if (jobs.length === 0) {
+      alert("No jobs to run agents on.");
+      return;
+    }
+
+    setIsRunningAgents(true);
+    setAgentProgress({ current: 0, total: jobs.length });
+
+    try {
+      for (let i = 0; i < jobs.length; i++) {
+        const job = jobs[i];
+        try {
+          await api.agent.run(job.source_url, job.id);
+        } catch (error) {
+          console.error(`Failed to run agent for job ${job.title}`, error);
+        }
+        setAgentProgress({ current: i + 1, total: jobs.length });
+
+        queryClient.invalidateQueries({ queryKey: ["jobs", viewMode] });
+
+        if (i < jobs.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+        }
+      }
+    } finally {
+      setIsRunningAgents(false);
+      setTimeout(() => setAgentProgress({ current: 0, total: 0 }), 2000);
+    }
+  };
 
   const toggleEmail = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -90,7 +124,9 @@ export default function KanbanBoard() {
   });
 
   // Filter out ignored by default
-  const jobs = allJobs.filter((job) => job.status !== "ignored");
+  const jobs = allJobs.filter(
+    (job) => job.status === "found" || job.status === "drafted",
+  );
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -194,23 +230,44 @@ export default function KanbanBoard() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-neutral-500" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 w-full sm:w-auto"
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={runAllAgents}
+            disabled={isRunningAgents}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-sm font-medium justify-center w-full sm:w-auto ${
+              isRunningAgents
+                ? "bg-blue-600/50 text-white cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-500 text-white"
+            }`}
           >
-            {filterOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label} (
-                {opt.id === "all"
-                  ? jobs.length
-                  : (jobsByStatus[opt.id] || []).length}
-                )
-              </option>
-            ))}
-          </select>
+            {isRunningAgents ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Bot className="w-4 h-4" />
+            )}
+            {isRunningAgents && agentProgress.total > 0
+              ? `Running (${agentProgress.current}/${agentProgress.total})`
+              : "Run All Agents"}
+          </button>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Filter className="w-4 h-4 text-neutral-500" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-neutral-200 w-full sm:w-auto"
+            >
+              {filterOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label} (
+                  {opt.id === "all"
+                    ? jobs.length
+                    : (jobsByStatus[opt.id] || []).length}
+                  )
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
