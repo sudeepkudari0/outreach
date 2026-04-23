@@ -84,6 +84,8 @@ def _is_authwall(title: str, url: str) -> bool:
     return "authwall" in title_lower or ("auth" in url and "wall" in url)
 
 
+import shutil
+
 async def scrape_linkedin(
     date_filter: str = "r604800",
     source_type: str = "emails",
@@ -93,8 +95,11 @@ async def scrape_linkedin(
     Scrape LinkedIn jobs based on configured keywords and location.
     Returns the number of new jobs found.
     """
+    # Delete Crawlee's default Request Queue cache so it doesn't skip already processed URLs 
+    shutil.rmtree("storage/request_queues/default", ignore_errors=True)
+    
     keywords = quote_plus(settings.linkedin_search_keywords)
-    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&f_TPR={date_filter}"
+    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&f_TPR={date_filter}&f_WT=2"
 
     await _log(f"=== Starting LinkedIn scrape ===")
     await _log(f"Search keywords: {settings.linkedin_search_keywords}")
@@ -141,6 +146,7 @@ async def scrape_linkedin(
                     if href.startswith("http")
                     else f"https://www.linkedin.com{href}"
                 )
+                full_url = full_url.split("?")[0]
                 urls.append(full_url)
 
         await _log(f"Found {len(urls)} job listing links")
@@ -227,13 +233,14 @@ async def scrape_linkedin(
         # For manual mode, save job without requiring email
         if source_type == "manual":
             await _log(f"[MANUAL] Saving job: {job_title} @ {company}")
+            clean_url = page.url.split("?")[0]
             job = await save_job_if_new(
                 title=job_title.strip(),
                 company=company,
                 recruiter_name=recruiter_name,
-                email=f"manual-{page.url}",
+                email=f"manual-{clean_url}",
                 source_site="linkedin",
-                source_url=page.url,
+                source_url=clean_url,
                 raw_post_text=description.strip() if description else "",
                 source_type=source_type,
             )
