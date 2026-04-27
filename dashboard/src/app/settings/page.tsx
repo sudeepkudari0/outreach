@@ -17,10 +17,19 @@ const DATE_FILTERS: { value: DateFilter; label: string }[] = [
   { value: "r2592000", label: "Last month" },
 ];
 
+const LOCATIONS = [
+  { value: "bengaluru", label: "Bengaluru" },
+  { value: "hyderabad", label: "Hyderabad" },
+  { value: "pune", label: "Pune" },
+  { value: "mumbai", label: "Mumbai" },
+  { value: "delhi", label: "Delhi" },
+];
+
 export default function SettingsPage() {
   const [scrapeTarget, setScrapeTarget] = useState<ScrapeTarget>("linkedin");
   const [dateFilter, setDateFilter] = useState<DateFilter>("r86400");
   const [sourceType, setSourceType] = useState<SourceType>("manual");
+  const [location, setLocation] = useState<string>("bangalore");
   const [limit, setLimit] = useState<number>(5);
 
   const scrapeMutation = useMutation({
@@ -29,6 +38,7 @@ export default function SettingsPage() {
         dateFilter,
         sourceType,
         limit,
+        location,
       }),
   });
 
@@ -86,6 +96,19 @@ export default function SettingsPage() {
         >
           <option value="emails">Extract Emails</option>
           <option value="manual">Manual (Save Links Only)</option>
+        </select>
+
+        <select
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          disabled={scrapeMutation.isPending}
+          className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors text-neutral-200 disabled:opacity-50"
+        >
+          {LOCATIONS.map((loc) => (
+            <option key={loc.value} value={loc.value}>
+              {loc.label}
+            </option>
+          ))}
         </select>
 
         <select

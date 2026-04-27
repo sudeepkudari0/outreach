@@ -7,9 +7,11 @@ import asyncio
 import json
 import logging
 import random
+import uuid
 from typing import Optional
 
 from crawlee.crawlers import BeautifulSoupCrawler, BeautifulSoupCrawlingContext
+from crawlee.storages import RequestQueue
 
 from backend.ai.email_writer import generate_email_draft
 from backend.db.models import EmailDraft
@@ -35,11 +37,19 @@ async def scrape_naukri(
     date_filter: str = "r604800",
     source_type: str = "emails",
     limit: int = 5,
+    location: Optional[str] = None,
 ) -> int:
-    start_url = "https://www.naukri.com/full-stack-developer-jobs-in-bangalore"
+    from backend.config import settings
+    
+    # Simple slugify for keywords and location
+    keywords_slug = settings.linkedin_search_keywords.lower().replace(" ", "-")
+    loc = location or "india" # default to india if no location provided
+    location_slug = loc.lower().replace(" ", "-")
+    
+    start_url = f"https://www.naukri.com/{keywords_slug}-jobs-in-{location_slug}"
 
     await _log(f"=== Starting Naukri scrape ===")
-    await _log(f"Search: full-stack developer in Bangalore")
+    await _log(f"Search: {settings.linkedin_search_keywords} in {loc}")
     await _log(f"Date filter: {date_filter}")
     await _log(f"Source type: {source_type}")
     await _log(f"Target URL: {start_url}")
@@ -218,7 +228,13 @@ async def scrape_naukri(
         await asyncio.sleep(random.uniform(2, 5))
 
     await _log("Starting Naukri crawler...")
-    await crawler.run([start_url])
+    # Use a unique request queue for each run to avoid conflicts and cache issues
+    queue_name = f"naukri-{uuid.uuid4().hex[:8]}"
+    queue = await RequestQueue.open(name=queue_name)
+    await crawler.run([start_url], request_queue=queue)
+    
+    # Clean up the queue after run
+    await queue.drop()
 
     if new_jobs_count == 0:
         await _log("WARNING: No new jobs were scraped!")

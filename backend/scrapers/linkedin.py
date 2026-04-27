@@ -8,11 +8,13 @@ import json
 import logging
 import os
 import random
+import uuid
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote_plus
 
 from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
+from crawlee.storages import RequestQueue
 from playwright.async_api import BrowserContext
 
 from backend.ai.email_writer import generate_email_draft
@@ -90,20 +92,22 @@ async def scrape_linkedin(
     date_filter: str = "r604800",
     source_type: str = "emails",
     limit: int = 5,
+    location: Optional[str] = None,
 ) -> int:
     """
     Scrape LinkedIn jobs based on configured keywords and location.
     Returns the number of new jobs found.
     """
-    # Delete Crawlee's default Request Queue cache so it doesn't skip already processed URLs 
-    shutil.rmtree("storage/request_queues/default", ignore_errors=True)
+    # shutil.rmtree("storage/request_queues/default", ignore_errors=True)
     
     keywords = quote_plus(settings.linkedin_search_keywords)
-    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&f_TPR={date_filter}&f_WT=2"
+    location_param = f"&location={quote_plus(location)}" if location else ""
+    start_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&f_TPR={date_filter}&f_WT=2{location_param}"
 
     await _log(f"=== Starting LinkedIn scrape ===")
     await _log(f"Search keywords: {settings.linkedin_search_keywords}")
     await _log(f"Date filter: {date_filter}")
+    await _log(f"Location: {location or 'Not specified'}")
     await _log(f"Source type: {source_type}")
     await _log(f"Target URL: {start_url}")
 
@@ -306,7 +310,13 @@ async def scrape_linkedin(
         await asyncio.sleep(random.uniform(3, 8))
 
     await _log("Starting LinkedIn crawler...")
-    await crawler.run([start_url])
+    # Use a unique request queue for each run to avoid conflicts and cache issues
+    queue_name = f"linkedin-{uuid.uuid4().hex[:8]}"
+    queue = await RequestQueue.open(name=queue_name)
+    await crawler.run([start_url], request_queue=queue)
+    
+    # Clean up the queue after run
+    await queue.drop()
 
     if new_jobs_count == 0:
         await _log("WARNING: No new jobs were scraped!")
